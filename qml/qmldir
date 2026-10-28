@@ -1,0 +1,7 @@
+singleton Config 1.0 Config.qml
+singleton Scheme 1.0 Scheme.qml
+singleton Theme 1.0 Theme.qml
+singleton Icons 1.0 Icons.qml
+singleton Format 1.0 Format.qml
+singleton Popouts 1.0 Popouts.qml
+singleton Usage 1.0 Usage.qml

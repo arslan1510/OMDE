@@ -1,0 +1,7 @@
+result
+result-*
+.qmlls.ini
+
+# Rust/CMake build output
+search/build/
+search/core/target/
