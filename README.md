@@ -77,6 +77,10 @@ nix build .#default
 nix flake check
 ```
 
+## Contributing
+
+Contributions are most welcome! AI-assisted contributions are also welcomed as long as they follow mango's [AI policy](https://github.com/mangowm/mango). Rust is preferred over C++ keeping C++ as a thin wrapper if needed.
+
 ## License
 
 MIT. The search core links [nucleo-matcher](https://github.com/helix-editor/nucleo),
