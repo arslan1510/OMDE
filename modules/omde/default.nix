@@ -1,6 +1,6 @@
-{ self, inputs, ... }:
+{ self, ... }:
 {
-  flake.homeManagerModules.default =
+  flake.modules.homeManager.omde =
     {
       config,
       lib,
@@ -10,19 +10,6 @@
     let
       cfg = config.omde;
       system = pkgs.stdenv.hostPlatform.system;
-
-      motionType = lib.types.submodule {
-        options = {
-          duration = lib.mkOption {
-            type = lib.types.ints.unsigned;
-            description = "Milliseconds.";
-          };
-          curve = lib.mkOption {
-            type = lib.types.listOf lib.types.number;
-            description = "Cubic bezier control points, x1 y1 x2 y2.";
-          };
-        };
-      };
 
       mkBool =
         default: description:
@@ -66,102 +53,41 @@
           config.lib.file.mkOutOfStoreSymlink "${toString cfg.liveReload.source}/qml"
         else
           "${cfg.qmlPackage}/share/omde/qml";
+
+      omdeCli = pkgs.callPackage (self.outPath + "/cli") {
+        mango = cfg.mango.package;
+        quickshell = cfg.package;
+      };
     in
     {
-      imports = [ ./mango.nix ];
-
       options.omde = {
         enable = lib.mkEnableOption "OMDE, a Quickshell bar for Mango";
 
         package = lib.mkOption {
           type = lib.types.package;
           default = self.packages.${system}.default;
-          defaultText = lib.literalExpression "inputs.omde.packages.\${system}.default";
+          defaultText = lib.literalExpression "self.packages.\${system}.default";
           description = "Quickshell with OMDE's logind and search QML modules.";
         };
 
         qmlPackage = lib.mkOption {
           type = lib.types.package;
-          default = self.packages.${system}.omde;
-          defaultText = lib.literalExpression "inputs.omde.packages.\${system}.omde";
+          default = self.packages.${system}.omde-qml;
+          defaultText = lib.literalExpression "self.packages.\${system}.omde-qml";
           description = "The QML tree; share/omde/qml is linked into Quickshell's config.";
         };
 
-        theme = {
-          colors = lib.mkOption {
-            type = lib.types.attrsOf lib.types.str;
-            default = {
-              background = "#1c2023";
-              foreground = "#c7ccd1";
-              muted = "#747c84";
-              accent = "#c7ccd1";
-              warning = "#aec795";
-              critical = "#c7ae95";
-            };
-            description = "Semantic color roles, as CSS colors.";
-          };
+        checkConfig = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Validate generated config at build time.";
+        };
 
-          font = {
-            family = lib.mkOption {
-              type = lib.types.str;
-              default = "CaskaydiaCove Nerd Font";
-              description = "Monospace family; icons are Nerd Font glyphs.";
-            };
-            size = lib.mkOption {
-              type = lib.types.numbers.nonnegative;
-              default = 12.5;
-              description = "Points; every length in the shell derives from this.";
-            };
-          };
-
-          borderWidth = lib.mkOption {
-            type = lib.types.ints.unsigned;
-            default = 1;
-            description = "Pixels, snapped to whole device pixels per output.";
-          };
-
-          motion = lib.mkOption {
-            type = lib.types.attrsOf motionType;
-            default = {
-              enter = {
-                duration = 250;
-                curve = [
-                  0.05
-                  0.7
-                  0.1
-                  1.0
-                ];
-              };
-              exit = {
-                duration = 150;
-                curve = [
-                  0.3
-                  0.0
-                  0.8
-                  0.15
-                ];
-              };
-              move = {
-                duration = 300;
-                curve = [
-                  0.05
-                  0.7
-                  0.1
-                  1.0
-                ];
-              };
-              effect = {
-                duration = 150;
-                curve = [
-                  0.34
-                  0.8
-                  0.34
-                  1.0
-                ];
-              };
-            };
-            description = "Named motion roles, shared with Mango.";
-          };
+        cli.package = lib.mkOption {
+          type = lib.types.package;
+          default = omdeCli;
+          defaultText = lib.literalMD "the `omde` command built against `omde.package`";
+          description = "The command that starts and controls OMDE.";
         };
 
         bar = {
@@ -278,21 +204,6 @@
             description = "User target the service is ordered against and wanted by.";
           };
         };
-
-        mango = {
-          enable = lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = "Whether to write OMDE's part of Mango's config.";
-          };
-
-          package = lib.mkOption {
-            type = lib.types.package;
-            default = inputs.mangowm.packages.${system}.default;
-            defaultText = lib.literalMD "Mango from the `mangowm` input";
-            description = "Mango used to validate mango/omde.toml.";
-          };
-        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -305,10 +216,6 @@
             assertion = !cfg.liveReload.enable || cfg.liveReload.source != null;
             message = "omde.liveReload.source must be set when live reload is enabled.";
           }
-          {
-            assertion = !cfg.mango.enable || (config.wayland.windowManager.mango.enable or true);
-            message = "omde.mango writes mango/omde.toml, which needs Mango's Home Manager module.";
-          }
         ];
 
         systemd.user.services.omde = lib.mkIf cfg.systemd.enable {
@@ -316,12 +223,19 @@
             Description = "OMDE, a Quickshell bar for Mango";
             After = [ cfg.systemd.target ];
             PartOf = [ cfg.systemd.target ];
+            X-Restart-Triggers = [
+              "${config.xdg.configFile."omde/config.json".source}"
+              "${config.xdg.configFile."omde/palette.json".source}"
+            ];
           };
 
           Service = {
-            ExecStart = "${lib.getExe cfg.package} --config omde --no-duplicate";
-            Restart = "always";
-            RestartSec = "2s";
+            Type = "exec";
+            ExecStart = "${lib.getExe cfg.cli.package} run";
+            Restart = "on-failure";
+            RestartSec = "5s";
+            TimeoutStopSec = "5s";
+            Slice = "session.slice";
           };
 
           Install.WantedBy = [ cfg.systemd.target ];
@@ -333,14 +247,17 @@
           configs.omde = qml;
         };
 
-        home.packages = with pkgs; [
+        home.packages = [
+          cfg.cli.package
+        ]
+        ++ (with pkgs; [
           grim
           slurp
           satty
           wl-clipboard
           libnotify
           brightnessctl
-        ];
+        ]);
         services.cliphist.enable = true;
 
         xdg.configFile."omde/config.json".text = builtins.toJSON {
@@ -401,7 +318,7 @@
         };
 
         xdg.configFile."omde/palette.json".text = builtins.toJSON {
-          colors = cfg.theme.colors;
+          colors = cfg.theme.resolvedColors;
           font = { inherit (cfg.theme.font) family size; };
           inherit (cfg.theme) borderWidth motion;
         };

@@ -1,0 +1,64 @@
+[global]
+source = ["./theme.toml"]
+source_optional = ["./omde.toml", "./user.toml"]
+xkb_rules_layout = "us"
+tap_to_click = 1
+gap_inner_horizontal = 6
+gap_inner_vertical = 6
+gap_outer_horizontal = 6
+gap_outer_vertical = 6
+edge_scroller_pointer_focus = 0
+
+[[rule.tag_rule]]
+id = "*"
+layout_name = "scroller"
+
+[bind.default]
+"SUPER+Return" = "spawn,xdg-terminal-exec"
+"SUPER+e" = "spawn,xdg-terminal-exec superfile"
+"SUPER+b" = "spawn,firefox"
+"SUPER+q" = "killclient"
+"SUPER+r" = "reload_config"
+"SUPER+SHIFT+e" = "quit"
+"SUPER+f" = "togglefullscreen"
+"SUPER+p" = "togglefloating"
+"SUPER+Tab" = "focusstack,next"
+"SUPER+j" = "focusdir,left"
+"SUPER+k" = "focusdir,down"
+"SUPER+i" = "focusdir,up"
+"SUPER+l" = "focusdir,right"
+"SUPER+SHIFT+j" = "move_client,left"
+"SUPER+SHIFT+k" = "move_client,down"
+"SUPER+SHIFT+i" = "move_client,up"
+"SUPER+SHIFT+l" = "move_client,right"
+"SUPER+n" = "switch_layout"
+"SUPER+1" = "view,1,0"
+"SUPER+2" = "view,2,0"
+"SUPER+3" = "view,3,0"
+"SUPER+4" = "view,4,0"
+"SUPER+5" = "view,5,0"
+"SUPER+6" = "view,6,0"
+"SUPER+7" = "view,7,0"
+"SUPER+8" = "view,8,0"
+"SUPER+9" = "view,9,0"
+"SUPER+SHIFT+1" = "tag,1,0"
+"SUPER+SHIFT+2" = "tag,2,0"
+"SUPER+SHIFT+3" = "tag,3,0"
+"SUPER+SHIFT+4" = "tag,4,0"
+"SUPER+SHIFT+5" = "tag,5,0"
+"SUPER+SHIFT+6" = "tag,6,0"
+"SUPER+SHIFT+7" = "tag,7,0"
+"SUPER+SHIFT+8" = "tag,8,0"
+"SUPER+SHIFT+9" = "tag,9,0"
+
+[bind.default.lock]
+"XF86AudioRaiseVolume" = "spawn,wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"
+"XF86AudioLowerVolume" = "spawn,wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+"XF86AudioMute" = "spawn,wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+"XF86AudioMicMute" = "spawn,wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+"XF86MonBrightnessUp" = "spawn,brightnessctl -q -c backlight set 5%+"
+"XF86MonBrightnessDown" = "spawn,brightnessctl -q -c backlight -n set 5%-"
+
+[mousebind.default]
+"SUPER+btn_left" = "moveresize,curmove"
+"SUPER+btn_right" = "moveresize,curresize"

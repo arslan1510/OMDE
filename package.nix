@@ -4,7 +4,7 @@
   version,
 }:
 stdenvNoCC.mkDerivation {
-  pname = "omde";
+  pname = "omde-qml";
   inherit version;
 
   src = lib.fileset.toSource {
@@ -23,7 +23,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "OMDE, a Quickshell bar for Mango";
+    description = "OMDE, a Quickshell setup for Mango";
     license = lib.licenses.mit;
     platforms = lib.platforms.linux;
   };

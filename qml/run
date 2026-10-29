@@ -1,7 +1,0 @@
-#!/bin/sh
-mango=${MANGO_INSTANCE_SIGNATURE##*-}
-mango=${mango%.sock}
-while kill -0 "$mango" 2>/dev/null; do
-    quickshell --config omde --no-duplicate
-    sleep 1
-done

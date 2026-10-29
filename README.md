@@ -7,47 +7,35 @@ A minimal Quickshell setup with Mango that I use for my development workflow.
 ## Install
 
 OMDE is a flake. It exports `homeManagerModules.default`, `nixosModules.default`
-and packages `default` (Quickshell with the logind and search plugins), `omde`
-(the QML), `omde-logind` and `omde-search`.
 
-With NixOS and Home Manager:
+NixOS and Home Manager:
 
 ```nix
 inputs.omde = {
   url = "github:arslan1510/OMDE";
   inputs.nixpkgs.follows = "nixpkgs";
+  inputs.home-manager.follows = "home-manager";
 };
 
-# NixOS
 imports = [ inputs.omde.nixosModules.default ];
-# Home Manager
-home-manager.sharedModules = [ { omde.enable = true; } ];
+omde.enable = true;
 ```
 
-Home Manager on its own:
+Note: The NixOS module installs an `OMDE` Wayland session entry when
+`omde.session.enable` is true (the default). A display manager can then start
+OMDE directly instead of using Mango's own session entry.
 
-```nix
-imports = [ inputs.omde.homeManagerModules.default ];
-
-omde = {
-  enable = true;
-  clock.format = "HH:mm";
-  bar.modules.tray = false;
-};
-```
-
-OMDE needs Mango with its Home Manager module.
 ## Usage
 
-By default, a systemd user service starts OMDE with the session and stops with
-it. The service starts after the compositor's session target. Set
-`omde.systemd.enable = false` to let Mango start `run` from `mango/omde.toml`
-instead. Either way:
-
 ```sh
-quickshell kill -c omde            
-systemctl --user restart omde      
+omde
+omde restart
+omde help
 ```
+
+Note: A systemd user service starts OMDE with the session. Set
+`omde.systemd.enable = true` to let Mango start `omde shell --daemon` from
+`mango/omde.toml`
 
 | Key | Action |
 |---|---|
@@ -59,43 +47,34 @@ systemctl --user restart omde
 | `SHIFT+Print` | screenshot the screen |
 | `SUPER+Print` | screenshot a region into satty |
 
-Volume, brightness and media keys are bound in `~/.config/mango/omde.toml`.
-
-Don't create `~/.config/quickshell/shell.qml`: Quickshell would take it as the
-default config and stop finding `omde/`.
 
 ## Configuration
 
-Home Manager writes two files as store symlinks, so a rebuild doesn't reach the
-running shell until you reload:
-
-```sh
-qs ipc -c omde call omde reloadTheme
-qs ipc -c omde call omde reloadConfig
-```
-
-`palette.json` holds the theme (`omde.theme.*`).
-
-`config.json` holds behaviour
-from the matching `omde.*` options: bar cells, tags, widths, clock etc.
-
-Defaults are in `qml/Scheme.qml` and `qml/Config.qml`.
-
-See `modules/omde/default.nix` for every option.
+| Source | Installed at |
+|---|---|
+| `qml/` | `~/.config/quickshell/omde` |
+| `mango/config.toml` | `~/.config/mango/config.toml` |
+| generated Mango theme | `~/.config/mango/theme.toml` |
+| generated OMDE binds | `~/.config/mango/omde.toml` |
+| generated palette | `~/.config/omde/palette.json` |
+| generated shell config | `~/.config/omde/config.json` |
+| optional user overrides | `~/.config/mango/user.toml` |
 
 ## Development
 
-`qml/` is the shell.
+Note: OMDE uses `import-tree` and flake feature modules; the public `default` modules are
+thin wrappers.
 
-`search/` is the fuzzy matcher (`OMDE.Search`), a Rust core
-with a small C++ QML shim.
-
-`logind/` is a Qt plugin (`OMDE.Logind`).
-
-`modules/` holds the flake and HM module.
+```text
+qml/       Quickshell shell
+search/    OMDE.Search, Rust core + C++ QML shim
+logind/    OMDE.Logind Qt plugin
+modules/   flake, NixOS feature, Home Manager features
+```
 
 ```sh
 nix build .#default
+nix flake check
 ```
 
 ## License
