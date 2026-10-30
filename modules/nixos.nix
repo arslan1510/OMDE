@@ -173,23 +173,23 @@ in
             base16Scheme = cfg.theme.base16Scheme;
 
             fonts = {
-              monospace = {
+              monospace = lib.mkDefault {
                 package = pkgs.nerd-fonts.caskaydia-cove;
                 name = "CaskaydiaCove Nerd Font";
               };
-              sansSerif = {
+              sansSerif = lib.mkDefault {
                 package = pkgs.geist-font;
                 name = "Geist";
               };
-              serif = {
+              serif = lib.mkDefault {
                 package = pkgs.source-serif;
                 name = "Source Serif 4";
               };
-              emoji = {
+              emoji = lib.mkDefault {
                 package = pkgs.noto-fonts-color-emoji;
                 name = "Noto Color Emoji";
               };
-              sizes = {
+              sizes = lib.mkDefault {
                 applications = 13.75;
                 desktop = 12.5;
                 popups = 12.5;
