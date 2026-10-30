@@ -15,8 +15,6 @@ layout_name = "scroller"
 
 [bind.default]
 "SUPER+Return" = "spawn,xdg-terminal-exec"
-"SUPER+e" = "spawn,xdg-terminal-exec superfile"
-"SUPER+b" = "spawn,firefox"
 "SUPER+q" = "killclient"
 "SUPER+r" = "reload_config"
 "SUPER+SHIFT+e" = "quit"
