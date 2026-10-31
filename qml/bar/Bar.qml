@@ -10,6 +10,7 @@ PanelWindow {
 
     readonly property string monitorName: screen.name
     readonly property var monitor: Mango.monitorFor(monitorName)
+    property bool shown: true
     readonly property real barWidth: Math.min(Theme.barMaxWidth, width)
     readonly property real sidesWidth: row.width
         - (clock.visible ? clock.implicitWidth + row.spacing * 2 : row.spacing)
@@ -21,9 +22,16 @@ PanelWindow {
             : Math.max(left, Math.min(half, sidesWidth - right));
     }
 
+    function toggle(): void {
+        if (shown)
+            Popouts.dismiss();
+        shown = !shown;
+    }
+
     function status(): var {
         return {
             screen: monitorName,
+            shown: shown,
             width: width,
             height: height,
             devicePixelRatio: devicePixelRatio,
@@ -50,7 +58,8 @@ PanelWindow {
     }
     // Keep the surface size fixed; resizing stutters and leaves stale frames.
     implicitHeight: Math.min(Theme.barHeight + Theme.popoutMaxHeight, screen.height - Theme.gutter * 2)
-    exclusiveZone: Theme.barHeight
+    visible: shown
+    exclusiveZone: shown ? Theme.barHeight : 0
     focusable: false
     color: "transparent"
     WlrLayershell.namespace: "omde"

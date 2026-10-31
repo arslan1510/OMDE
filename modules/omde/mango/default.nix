@@ -25,6 +25,7 @@
         "SUPER+Escape" = "${ipc "session lock"}"
         "SUPER+w" = "${ipc "launcher windows"}"
         "SUPER+v" = "${ipc "launcher clipboard"}"
+        "SUPER+b" = "${ipc "bar toggle"}"
         "Print" = "${ipc "screenshot take region"}"
         "SHIFT+Print" = "${ipc "screenshot take screen"}"
         "SUPER+Print" = "${ipc "screenshot take annotate"}"

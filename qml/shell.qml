@@ -76,6 +76,12 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "bar"
+
+        function toggle(): void { onScreen.item?.bar.toggle(); }
+    }
+
+    IpcHandler {
         target: "media"
 
         function playPause(): void { Media.playPause(); }

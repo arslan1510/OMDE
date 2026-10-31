@@ -42,6 +42,7 @@ Note: A systemd user service starts OMDE with the session. Set
 | `SUPER+space` | launcher |
 | `SUPER+w` | launcher, open windows |
 | `SUPER+v` | launcher, clipboard history |
+| `SUPER+b` | toggle the bar |
 | `SUPER+Escape` | lock |
 | `Print` | screenshot a region |
 | `SHIFT+Print` | screenshot the screen |
