@@ -7,38 +7,62 @@ import qs
 import qs.components
 import qs.services
 
-WlSessionLock {
-    locked: Session.locked
-    onSecureChanged: Session.secure = secure
+Scope {
+    PersistentProperties {
+        id: state
+        reloadableId: "session-lock"
+        property bool locked: false
 
-    WlSessionLockSurface {
-        color: Theme.background
+        onLoaded: {
+            locked = locked || Session.locked;
+            Session.locked = locked;
+        }
+    }
 
-        WallpaperImage {}
+    Connections {
+        target: Session
+        function onLockedChanged(): void { state.locked = Session.locked; }
+    }
 
-        Card {
-            anchors.centerIn: parent
-            width: Theme.notificationWidth
-            shown: true
-            dy: Theme.travel
+    Connections {
+        target: Quickshell
+        function onReloadCompleted(): void { Session.secure = lock.secure; }
+    }
 
-            SystemClock {
-                id: clock
-                precision: SystemClock.Minutes
-            }
+    WlSessionLock {
+        id: lock
+        locked: state.locked
+        onSecureChanged: Session.secure = secure
 
-            PasswordPrompt {
-                width: parent.width
-                header: Qt.formatDateTime(clock.date, Config.clockFormat)
-                    + "  " + Qt.formatDateTime(clock.date, Config.dateFormat)
-                glyph: Icons.lock
-                placeholder: "password"
-                status: Session.checking ? "checking…" : Session.failure
-                error: !Session.checking && Session.failure.length > 0
-                onSubmitted: password => Session.authenticate(password)
-                onCancelled: input.text = ""
-                holdFocus: true
-                Component.onCompleted: input.forceActiveFocus()
+        WlSessionLockSurface {
+            color: Theme.background
+
+            WallpaperImage {}
+
+            Card {
+                anchors.centerIn: parent
+                width: Theme.notificationWidth
+                shown: true
+                dy: Theme.travel
+
+                SystemClock {
+                    id: clock
+                    precision: SystemClock.Minutes
+                }
+
+                PasswordPrompt {
+                    width: parent.width
+                    header: Qt.formatDateTime(clock.date, Config.clockFormat)
+                        + "  " + Qt.formatDateTime(clock.date, Config.dateFormat)
+                    glyph: Icons.lock
+                    placeholder: "password"
+                    status: Session.checking ? "checking…" : Session.failure
+                    error: !Session.checking && Session.failure.length > 0
+                    onSubmitted: password => Session.authenticate(password)
+                    onCancelled: input.text = ""
+                    holdFocus: true
+                    Component.onCompleted: input.forceActiveFocus()
+                }
             }
         }
     }

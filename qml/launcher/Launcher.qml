@@ -102,7 +102,13 @@ PromptWindow {
         armed = null;
         selected = 0;
     }
-    onResultsChanged: selected = Math.min(selected, Math.max(0, results.length - 1))
+    onResultsChanged: {
+        armed = null;
+        selected = Math.max(0, Math.min(selected, results.length - 1));
+        if (results.length === 0)
+            selection.row = null;
+        Qt.callLater(selection.snap);
+    }
     onShownChanged: {
         armed = null;
         if (shown) {

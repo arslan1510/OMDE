@@ -4,7 +4,10 @@
 #include <QDBusUnixFileDescriptor>
 #include <QObject>
 #include <QString>
+#include <QTimer>
 #include <QtQml/qqmlregistration.h>
+
+class QDBusPendingCallWatcher;
 
 class Logind: public QObject {
 	Q_OBJECT;
@@ -36,6 +39,9 @@ signals:
 	void unlockRequested();
 
 private:
+	void acquireInhibitor();
+	void discoverSession();
+	void sendLockedHint();
 	void callManager(const QString& method);
 
 	bool mInhibitSleep = false;
@@ -43,4 +49,8 @@ private:
 	QString mSessionPath;
 	QDBusUnixFileDescriptor mInhibitor;
 	QDBusConnection mBus;
+	QTimer mInhibitRetry;
+	QTimer mSessionRetry;
+	QDBusPendingCallWatcher* mInhibitCall = nullptr;
+	quint64 mInhibitGeneration = 0;
 };

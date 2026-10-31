@@ -21,24 +21,17 @@ in
       system = pkgs.stdenv.hostPlatform.system;
 
       omdeCli = pkgs.callPackage (self.outPath + "/cli") {
-        mango = cfg.mango.package;
+        mango = config.programs.mango.package;
         quickshell = self.packages.${system}.default;
       };
 
-      sessionDesktop =
-        (pkgs.writeTextDir "share/wayland-sessions/omde.desktop" ''
-          [Desktop Entry]
-          Name=OMDE
-          Comment=OMDE, a Quickshell + Mango desktop environment
-          Exec=${lib.getExe omdeCli} session
-          Type=Application
-          DesktopNames=OMDE;mango;wlroots
-        '')
-        // {
-          providedSessions = [ "omde" ];
-        };
+      sessionDesktop = pkgs.callPackage (self.outPath + "/session.nix") { cli = omdeCli; };
     in
     {
+      imports = [
+        inputs.mangowm.nixosModules.mango
+        inputs.stylix.nixosModules.stylix
+      ];
 
       options.omde = {
         enable = lib.mkEnableOption "OMDE, a Quickshell + Mango desktop environment";
@@ -46,7 +39,7 @@ in
         integrateHomeManager = lib.mkOption {
           type = lib.types.bool;
           default = true;
-          description = "Inject OMDE's Home Manager module and default it on. Set false when the host imports the module or does not use Home Manager.";
+          description = "Add OMDE's Home Manager module and defaults to the host's Home Manager users.";
         };
 
         mango = {
@@ -104,7 +97,7 @@ in
           removableMedia.enable = lib.mkOption {
             type = lib.types.bool;
             default = true;
-            description = "Enable udisks2 for removable media.";
+            description = "Enable udisks2 and OMDE's integrated Home Manager removable-media support.";
           };
 
           portals.enable = lib.mkOption {
@@ -139,35 +132,35 @@ in
       };
 
       config = lib.mkMerge [
-        # Add the HM module when Home Manager is present; cfg.enable adds the default.
         (lib.mkIf (cfg.integrateHomeManager && options ? home-manager) {
           home-manager.sharedModules = [
             omdeHomeManagerModule
           ]
-          ++ lib.optional cfg.enable { omde.enable = lib.mkDefault true; };
+          ++ lib.optional cfg.enable {
+            omde = {
+              enable = lib.mkDefault true;
+              mango = {
+                enable = lib.mkDefault config.programs.mango.enable;
+                package = lib.mkDefault config.programs.mango.package;
+              };
+              services.removableMedia.enable = lib.mkDefault cfg.services.removableMedia.enable;
+            };
+          };
         })
         (lib.mkIf cfg.enable {
           assertions = [
             {
               assertion = !cfg.integrateHomeManager || options ? home-manager;
-              message = "Home Manager is not imported. Import home-manager.nixosModules.home-manager or set omde.integrateHomeManager = false.";
-            }
-            {
-              assertion = options ? stylix;
-              message = "OMDE needs Stylix. Import stylix.nixosModules.stylix.";
-            }
-            {
-              assertion = !cfg.mango.enable || options ? programs.mango;
-              message = "Mango's NixOS module is not imported. Import mangowm.nixosModules.mango or set omde.mango.enable = false.";
+              message = "Home Manager is not imported. Import home-manager.nixosModules.home-manager.";
             }
           ];
 
-          programs.mango = lib.mkIf (options ? programs.mango) {
+          programs.mango = {
             enable = lib.mkDefault cfg.mango.enable;
             package = lib.mkDefault cfg.mango.package;
           };
 
-          stylix = lib.mkIf (options ? stylix) {
+          stylix = {
             enable = lib.mkDefault true;
             polarity = cfg.theme.polarity;
             base16Scheme = cfg.theme.base16Scheme;
@@ -234,6 +227,8 @@ in
 
           xdg.portal = lib.mkIf cfg.services.portals.enable {
             enable = lib.mkDefault true;
+            extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
+            config.mango."org.freedesktop.impl.portal.FileChooser" = lib.mkDefault [ "kde" ];
             wlr.settings.screencast = {
               chooser_type = "dmenu";
               chooser_cmd = "${pkgs.fuzzel}/bin/fuzzel --dmenu --prompt 'Share: '";
@@ -241,7 +236,10 @@ in
           };
 
           hardware.graphics.enable = lib.mkDefault cfg.hardware.graphics.enable;
-          environment.sessionVariables.NIXOS_OZONE_WL = lib.mkDefault "1";
+          environment.sessionVariables = {
+            NIXOS_OZONE_WL = lib.mkDefault "1";
+            GTK_USE_PORTAL = lib.mkIf cfg.services.portals.enable (lib.mkDefault "1");
+          };
           fonts.packages = [ pkgs.noto-fonts ];
 
           environment.systemPackages = [ omdeCli ];

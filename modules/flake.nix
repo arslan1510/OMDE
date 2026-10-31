@@ -5,7 +5,7 @@
   ...
 }:
 let
-  version = "0.1.1";
+  version = import ../version.nix;
 in
 {
   imports = [
@@ -39,27 +39,34 @@ in
         core = search-core;
       };
       omde-qml = pkgs.callPackage ../package.nix { inherit version; };
-      quickshell = inputs'.quickshell.packages.default.withModules [
-        logind
-        search
-      ];
+      quickshell-unwrapped = inputs'.quickshell.packages.default.unwrapped.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ../patches/quickshell-session-lock-reload.patch ];
+      });
+      quickshell =
+        (inputs'.quickshell.packages.default.withModules [
+          logind
+          search
+        ]).overrideAttrs
+          (old: {
+            installPhase = ''
+              mkdir -p $out
+              cp -r ${quickshell-unwrapped}/* $out
+            '';
+            passthru = old.passthru // {
+              unwrapped = quickshell-unwrapped;
+              withModules =
+                modules:
+                quickshell.overrideAttrs (previous: {
+                  buildInputs = previous.buildInputs ++ modules;
+                });
+            };
+          });
       omde-cli = pkgs.callPackage ../cli {
         inherit version;
         mango = inputs'.mangowm.packages.default;
         quickshell = quickshell;
       };
-      omde-session =
-        (pkgs.writeTextDir "share/wayland-sessions/omde.desktop" ''
-          [Desktop Entry]
-          Name=OMDE
-          Comment=OMDE, a Quickshell + Mango desktop environment
-          Exec=${pkgs.lib.getExe omde-cli} session
-          Type=Application
-          DesktopNames=OMDE;mango;wlroots
-        '')
-        // {
-          providedSessions = [ "omde" ];
-        };
+      omde-session = pkgs.callPackage ../session.nix { cli = omde-cli; };
     in
     {
       formatter = pkgs.nixfmt-tree;
@@ -90,7 +97,6 @@ in
               inherit pkgs;
               modules = [
                 self.homeManagerModules.default
-                inputs.mangowm.hmModules.mango
                 {
                   home.username = "omde";
                   home.homeDirectory = "/home/omde";

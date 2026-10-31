@@ -36,7 +36,7 @@
         "XF86AudioPrev" = "${ipc "media previous"}"
 
         [[rule.layer_rule]]
-        layer_name = "^omde-(launcher|osd|notification|polkit|wifi|shield)$"
+        layer_name = "^omde(-(launcher|osd|notification|polkit|wifi|shield))?$"
         no_animation = 1
 
         [[rule.window_rule]]
@@ -46,18 +46,20 @@
       '';
     in
     {
+      imports = [ inputs.mangowm.hmModules.mango ];
+
       options.omde.mango = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = true;
-          description = "Whether to write OMDE's part of Mango's config.";
+          description = "Enable Mango and OMDE's compositor configuration.";
         };
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = config.osConfig.programs.mango.package or inputs.mangowm.packages.${system}.default;
-          defaultText = lib.literalMD "Mango from the NixOS module, else the `mangowm` input";
-          description = "Mango used to validate mango/omde.toml.";
+          default = inputs.mangowm.packages.${system}.default;
+          defaultText = lib.literalMD "Mango from the `mangowm` input, shared with NixOS when integrated";
+          description = "Mango used by the compositor, CLI, and generated configuration checks.";
         };
       };
 
@@ -65,9 +67,15 @@
         assertions = [
           {
             assertion = config.wayland.windowManager.mango.enable or false;
-            message = "omde.mango writes mango/omde.toml, which needs Mango's Home Manager module.";
+            message = "omde.mango requires wayland.windowManager.mango.enable.";
           }
         ];
+
+        wayland.windowManager.mango = {
+          enable = lib.mkDefault true;
+          package = lib.mkDefault cfg.mango.package;
+          systemd.xdgAutostart = lib.mkDefault true;
+        };
 
         xdg.configFile."mango/config.toml".source = ./config.toml;
 

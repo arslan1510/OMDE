@@ -8,6 +8,8 @@ import qs
 Singleton {
     id: root
 
+    property int revision: 0
+
     SearchIndex {
         id: searchIndex
     }
@@ -17,6 +19,7 @@ Singleton {
     }
 
     function search(query: string, limit: int): var {
+        root.revision;
         return searchIndex.rank(query, limit, {});
     }
 
@@ -36,6 +39,7 @@ Singleton {
                     const entry = { id: line.slice(0, tab), name: line.slice(tab + 1) };
                     searchIndex.add(entry, entry.name, [], "");
                 }
+                root.revision++;
             }
         }
     }

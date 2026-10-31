@@ -5,7 +5,7 @@
 #include <QDBusObjectPath>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
-#include <QDBusReply>
+#include <QDebug>
 
 namespace {
 
@@ -23,40 +23,98 @@ QDBusMessage managerCall(const QString& method) {
 Logind::Logind(QObject* parent): Logind(QDBusConnection::systemBus(), parent) {
 }
 
-// QML uses the system bus; tests inject an offline connection.
 Logind::Logind(const QDBusConnection& bus, QObject* parent): QObject(parent), mBus(bus) {
 	this->mBus.connect(SERVICE, MANAGER_PATH, MANAGER, "PrepareForSleep", this, SIGNAL(prepareForSleep(bool)));
 
-	// "auto" is the session this process belongs to.
+	this->mInhibitRetry.setSingleShot(true);
+	this->mInhibitRetry.setInterval(1000);
+	QObject::connect(&this->mInhibitRetry, &QTimer::timeout, this, &Logind::acquireInhibitor);
+	this->mSessionRetry.setSingleShot(true);
+	this->mSessionRetry.setInterval(1000);
+	QObject::connect(&this->mSessionRetry, &QTimer::timeout, this, &Logind::discoverSession);
+	this->discoverSession();
+}
+
+void Logind::discoverSession() {
 	auto call = managerCall("GetSession");
 	call << QStringLiteral("auto");
-	this->mSessionPath = QDBusReply<QDBusObjectPath>(this->mBus.call(call)).value().path();
-	this->mBus.connect(SERVICE, this->mSessionPath, SESSION, "Lock", this, SIGNAL(lockRequested()));
-	this->mBus.connect(SERVICE, this->mSessionPath, SESSION, "Unlock", this, SIGNAL(unlockRequested()));
+	auto* watcher = new QDBusPendingCallWatcher(this->mBus.asyncCall(call), this);
+	QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher* w) {
+		const QDBusPendingReply<QDBusObjectPath> reply = *w;
+		w->deleteLater();
+		if (reply.isError() || reply.value().path().isEmpty()) {
+			qWarning().noquote() << "logind GetSession(auto) failed:"
+			                    << (reply.isError() ? reply.error().name() + ": " + reply.error().message()
+			                                        : QStringLiteral("empty session object path"))
+			                    << "; Lock/Unlock are not subscribed; retrying in"
+			                    << this->mSessionRetry.interval() << "ms";
+			this->mSessionRetry.start();
+			return;
+		}
+
+		const auto path = reply.value().path();
+		const bool lockConnected = this->mBus.connect(SERVICE, path, SESSION, "Lock", this, SIGNAL(lockRequested()));
+		const bool unlockConnected = this->mBus.connect(SERVICE, path, SESSION, "Unlock", this, SIGNAL(unlockRequested()));
+		if (!lockConnected || !unlockConnected) {
+			this->mBus.disconnect(SERVICE, path, SESSION, "Lock", this, SIGNAL(lockRequested()));
+			this->mBus.disconnect(SERVICE, path, SESSION, "Unlock", this, SIGNAL(unlockRequested()));
+			qWarning().noquote() << "logind Lock/Unlock subscription failed for" << path
+			                    << "; retrying GetSession(auto) in" << this->mSessionRetry.interval() << "ms";
+			this->mSessionRetry.start();
+			return;
+		}
+
+		this->mSessionPath = path;
+		if (this->mLockedHint) this->sendLockedHint();
+	});
 }
 
 void Logind::setInhibitSleep(bool inhibit) {
-	if (inhibit == this->mInhibitSleep) return;
-	this->mInhibitSleep = inhibit;
-	emit this->inhibitSleepChanged();
-
-	if (!inhibit) {
-		// Closing the last reference releases the inhibitor.
-		this->mInhibitor = QDBusUnixFileDescriptor();
-		return;
+	const bool changed = inhibit != this->mInhibitSleep;
+	if (changed) {
+		this->mInhibitSleep = inhibit;
+		++this->mInhibitGeneration;
 	}
 
-	// A delay inhibitor holds sleep until the lock screen is up.
+	if (!inhibit) {
+		this->mInhibitRetry.stop();
+		this->mInhibitCall = nullptr;
+		this->mInhibitor = QDBusUnixFileDescriptor();
+	} else {
+		this->acquireInhibitor();
+	}
+
+	if (changed) emit this->inhibitSleepChanged();
+}
+
+void Logind::acquireInhibitor() {
+	if (!this->mInhibitSleep || this->mInhibitor.isValid() || this->mInhibitCall) return;
+	this->mInhibitRetry.stop();
+
 	auto call = managerCall("Inhibit");
 	call << QStringLiteral("sleep") << QStringLiteral("omde")
 	     << QStringLiteral("Lock the screen before sleep") << QStringLiteral("delay");
 
+	const auto generation = this->mInhibitGeneration;
 	auto* watcher = new QDBusPendingCallWatcher(this->mBus.asyncCall(call), this);
-	QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher* w) {
+	this->mInhibitCall = watcher;
+	QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, generation](QDBusPendingCallWatcher* w) {
 		const QDBusPendingReply<QDBusUnixFileDescriptor> reply = *w;
 		w->deleteLater();
-		// Ignore a late reply once inhibition is off.
-		if (this->mInhibitSleep) this->mInhibitor = reply.value();
+		if (!this->mInhibitSleep || generation != this->mInhibitGeneration || this->mInhibitCall != w) return;
+		this->mInhibitCall = nullptr;
+
+		if (reply.isError() || !reply.value().isValid()) {
+			qWarning().noquote() << "logind Inhibit(sleep, delay) failed:"
+			                    << (reply.isError() ? reply.error().name() + ": " + reply.error().message()
+			                                        : QStringLiteral("invalid inhibitor file descriptor"))
+			                    << "; sleep is not inhibited; retrying in" << this->mInhibitRetry.interval()
+			                    << "ms while inhibitSleep is requested";
+			this->mInhibitRetry.start();
+			return;
+		}
+
+		this->mInhibitor = reply.value();
 	});
 }
 
@@ -65,9 +123,12 @@ void Logind::setLockedHint(bool locked) {
 	this->mLockedHint = locked;
 	emit this->lockedHintChanged();
 
-	// Tell logind the session is locked so other services see it.
+	if (!this->mSessionPath.isEmpty()) this->sendLockedHint();
+}
+
+void Logind::sendLockedHint() {
 	auto call = QDBusMessage::createMethodCall(SERVICE, this->mSessionPath, SESSION, "SetLockedHint");
-	call << locked;
+	call << this->mLockedHint;
 	this->mBus.send(call);
 }
 

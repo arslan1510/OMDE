@@ -61,7 +61,7 @@
     in
     {
       options.omde = {
-        enable = lib.mkEnableOption "OMDE, a Quickshell bar for Mango";
+        enable = lib.mkEnableOption "OMDE desktop shell";
 
         package = lib.mkOption {
           type = lib.types.package;
@@ -75,12 +75,6 @@
           default = self.packages.${system}.omde-qml;
           defaultText = lib.literalExpression "self.packages.\${system}.omde-qml";
           description = "The QML tree; share/omde/qml is linked into Quickshell's config.";
-        };
-
-        checkConfig = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Validate generated config at build time.";
         };
 
         cli.package = lib.mkOption {
@@ -259,6 +253,8 @@
           brightnessctl
         ]);
         services.cliphist.enable = true;
+
+        dconf.settings."org/blueman/general".plugin-list = lib.mkDefault [ "!StatusNotifierItem" ];
 
         xdg.configFile."omde/config.json".text = builtins.toJSON {
           bar = {

@@ -1,6 +1,6 @@
 # OMDE
 
-A minimal Quickshell setup with Mango that I use for my development workflow. 
+A minimal Quickshell setup with Mango that I use for my development workflow.
 
 ![OMDE bar on an empty desktop](assets/screenshot.png)
 
@@ -8,7 +8,7 @@ A minimal Quickshell setup with Mango that I use for my development workflow.
 
 OMDE is a flake. It exports `homeManagerModules.default`, `nixosModules.default`
 
-NixOS and Home Manager:
+NixOS with Home Manager already imported:
 
 ```nix
 inputs.omde = {
@@ -21,8 +21,8 @@ imports = [ inputs.omde.nixosModules.default ];
 omde.enable = true;
 ```
 
-Note: The NixOS module installs an `OMDE` Wayland session entry when
-`omde.session.enable` is true (the default). A display manager can then start
+Note: The NixOS module imports Mango and Stylix and installs an `OMDE` Wayland
+session entry when `omde.mango.enable` and `omde.session.enable` are true (the defaults). A display manager can then start
 OMDE directly instead of using Mango's own session entry.
 
 ## Usage
@@ -34,8 +34,8 @@ omde help
 ```
 
 Note: A systemd user service starts OMDE with the session. Set
-`omde.systemd.enable = true` to let Mango start `omde shell --daemon` from
-`mango/omde.toml`
+`home-manager.users.<name>.omde.systemd.enable = false` to let Mango start
+`omde shell --daemon` from `mango/omde.toml` instead. Restart only while unlocked.
 
 | Key | Action |
 |---|---|
@@ -54,7 +54,7 @@ Note: A systemd user service starts OMDE with the session. Set
 | Source | Installed at |
 |---|---|
 | `qml/` | `~/.config/quickshell/omde` |
-| `mango/config.toml` | `~/.config/mango/config.toml` |
+| `modules/omde/mango/config.toml` | `~/.config/mango/config.toml` |
 | generated Mango theme | `~/.config/mango/theme.toml` |
 | generated OMDE binds | `~/.config/mango/omde.toml` |
 | generated palette | `~/.config/omde/palette.json` |
@@ -74,8 +74,8 @@ modules/   flake, NixOS feature, Home Manager features
 ```
 
 ```sh
-nix build .#default
-nix flake check
+nix build path:.#default
+nix flake check path:.
 ```
 
 ## Contributing

@@ -9,6 +9,8 @@ import qs
 Singleton {
     id: root
 
+    property int revision: 0
+
     property var recent: []
     readonly property var ordered: {
         const all = ToplevelManager.toplevels.values;
@@ -35,12 +37,14 @@ Singleton {
             };
             searchIndex.add(row, row.name, [row.detail, toplevel.appId].filter(Boolean), "");
         }
+        root.revision++;
     }
 
     Component.onCompleted: rebuild()
     onSignatureChanged: rebuild()
 
     function search(query: string, limit: int): var {
+        root.revision;
         return searchIndex.rank(query, limit, {});
     }
 

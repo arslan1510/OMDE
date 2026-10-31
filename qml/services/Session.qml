@@ -39,12 +39,14 @@ Singleton {
     Binding {
         target: Logind
         property: "inhibitSleep"
+        restoreMode: Binding.RestoreNone
         value: !root.secure
     }
 
     Binding {
         target: Logind
         property: "lockedHint"
+        restoreMode: Binding.RestoreNone
         value: root.locked
     }
 

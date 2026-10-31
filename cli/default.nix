@@ -5,7 +5,7 @@
   mango,
   quickshell,
   systemd,
-  version ? "0.1.1",
+  version ? import ../version.nix,
 }:
 
 writeShellApplication {
